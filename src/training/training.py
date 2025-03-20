@@ -63,6 +63,7 @@ class Training:
         state_dict_list = []
 
         for epoch in range(self.epochs):
+
             num_train_batches = 0
             num_test_batches = 0
             total_loss = 0
@@ -99,7 +100,8 @@ class Training:
             avg_train_error.append(total_loss / num_train_batches)
             avg_test_error.append(total_loss_test / num_test_batches)
 
-            state_dict_list.append(self.model.state_dict())
+            #state_dict_list.append(self.model.state_dict())
+            state_dict_list.append({k: v.clone().detach() for k, v in self.model.state_dict().items()})
 
             if epoch % 5 == 0 and verbose >= 1:
                 print('Step {}: Average train loss: {:.4f} | Average test loss: {:.4f}'.format(epoch,

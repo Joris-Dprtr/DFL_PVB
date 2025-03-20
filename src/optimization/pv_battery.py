@@ -8,12 +8,14 @@ class PV_battery:
                  capacity,
                  max_charge,
                  max_discharge,
+                 self_consumption = True,
                  ):
 
         self.house = house
         self.capacity = capacity
         self.max_charge = max_charge
         self.max_discharge = max_discharge
+        self.self_consumption = self_consumption
 
     def create_optimization_problem(self, T):
 
@@ -39,22 +41,40 @@ class PV_battery:
         objective = cp.Minimize(cp.sum(imp @  off - exp @ inj))
 
         # Constraints
-        constraints = [
-            pv + imp + bat_discharge == exp + load + bat_charge,
-            exp >= 0,
-            exp <= pv + bat_discharge,
-            imp >= 0,
-            bat_charge >= 0,
-            bat_discharge >= 0,
-            bat_charge <= self.max_charge * (1-mode),
-            bat_discharge <= self.max_discharge * mode,
-            bat_energy[0] == initial_battery_energy,
-            bat_energy[-1] == self.capacity * 0.5,
-            bat_energy >= self.capacity * 0.2,
-            bat_energy <= self.capacity * 0.8,
-            mode >= 0,
-            mode <= 1
-        ]
+
+        if self.self_consumption:
+            constraints = [
+                pv + imp + bat_discharge == exp + load + bat_charge,
+                exp >= 0,
+                imp >= 0,
+                bat_charge >= 0,
+                bat_discharge >= 0,
+                bat_charge <= self.max_charge * (1-mode),
+                bat_charge <= pv - exp,
+                bat_discharge <= self.max_discharge * mode,
+                bat_energy[0] == initial_battery_energy,
+                bat_energy[-1] == self.capacity * 0.5,
+                bat_energy >= self.capacity * 0.2,
+                bat_energy <= self.capacity * 0.8,
+                mode >= 0,
+                mode <= 1
+            ]
+        else:
+            constraints = [
+                pv + imp + bat_discharge == exp + load + bat_charge,
+                exp >= 0,
+                imp >= 0,
+                bat_charge >= 0,
+                bat_discharge >= 0,
+                bat_charge <= self.max_charge * (1-mode),
+                bat_discharge <= self.max_discharge * mode,
+                bat_energy[0] == initial_battery_energy,
+                bat_energy[-1] == self.capacity * 0.5,
+                bat_energy >= self.capacity * 0.2,
+                bat_energy <= self.capacity * 0.8,
+                mode >= 0,
+                mode <= 1
+            ]
 
         for t in range(1, T+1):
             constraints += [
@@ -92,7 +112,6 @@ class PV_battery:
         constraints = [
             pv + imp + bat_discharge == exp + load + bat_charge,
             exp >= 0,
-            exp <= pv + bat_discharge,
             imp >= 0,
             bat_energy[0] == initial_battery_energy,
             bat_energy[-1] == self.capacity * 0.5,

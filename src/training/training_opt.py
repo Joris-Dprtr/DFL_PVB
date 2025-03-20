@@ -13,6 +13,9 @@ def save_model(model, name):
     """
     torch.save(model.state_dict(), '../models/' + str(name))
 
+def _rescale(values, scaler):
+    rescaled_values = values * (scaler[1] - scaler[0]) + scaler[0]
+    return rescaled_values
 
 class Training:
 
@@ -24,6 +27,7 @@ class Training:
             y_train,
             X_test,
             y_test,
+            scaler,
             epochs,
             T,
             bat_cap,
@@ -31,7 +35,8 @@ class Training:
             learning_rate=0.001,
             criterion=torch.nn.MSELoss(),
             min_beta=0,
-            max_beta=1
+            max_beta=1,
+            lr_decay=None
             ):
         """
         The training class for the pytorch model
@@ -49,17 +54,29 @@ class Training:
         self.batch_size = batch_size
         self.min_beta = min_beta
         self.max_beta = max_beta
+        self.learning_rate = learning_rate
 
         train_data = TensorDataset(X_train.to(self.device), y_train.to(self.device))
         test_data = TensorDataset(X_test.to(self.device), y_test.to(self.device))
         self.train_loader = DataLoader(train_data, batch_size=batch_size)
         self.test_loader = DataLoader(test_data, batch_size=batch_size)
+        self.scaler = scaler
 
         self.model = model
         self.cvx = cvx_layer
         self.criterion = criterion
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
         self.epochs = epochs
+
+        self.lr_decay = lr_decay
+        if lr_decay == 'Linear':
+            self.scheduler = torch.optim.lr_scheduler.LinearLR(
+                self.optimizer, start_factor=1.0, end_factor=0.1, total_iters=self.epochs)
+        elif lr_decay == 'Exponential':
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.95)
+        elif lr_decay == 'Cosine':
+            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.epochs)
+
         self.T = T
         self.bat_cap = bat_cap
 
@@ -67,7 +84,7 @@ class Training:
         self.months = round(days / 30.5)
 
 
-    def fit(self, verbose=0, timer=False):
+    def fit(self, verbose=0):
         """
         The training loop itself with error handling for cvx layer issues.
         :return: state_dict_list: the state dictionary for each of the epochs, argmin_test: the best epoch
@@ -92,16 +109,10 @@ class Training:
                 total_mse_test = 0
                 total_regret_test = 0
 
-                # Initialize timers
-                total_model_time = 0
-                total_cvx_time = 0
-                total_backprop_time = 0
-
-                self.model.train()
                 batches = iter(self.train_loader)
+                self.model.train()
 
                 for input, output in batches:
-                    model_start = time.perf_counter()
 
                     pv_train, y_train = self.model(input[:, :, 0:-4],
                                                    input[:, -self.T:, -4],
@@ -109,17 +120,13 @@ class Training:
                                                    input[:, -self.T:, -2],
                                                    input[:, -1, -1])
 
-                    total_model_time += time.perf_counter() - model_start
-
-                    cvx_start = time.perf_counter()
-                    y_train = self.cvx(output[:, :, 0],
+                    y_train = self.cvx(_rescale(output[:, :, 0],self.scaler),
                                        input[:, -self.T:, -4],
                                        input[:, -self.T:, -3],
                                        input[:, -self.T:, -2],
                                        input[:, -1, -1],
                                        y_train[-2],
                                        y_train[-1])
-                    total_cvx_time += time.perf_counter() - cvx_start
 
                     '''
                     prediction = (torch.bmm(y_train[0].unsqueeze(1), input[:, -self.T:, -3].unsqueeze(-1)) -
@@ -141,11 +148,9 @@ class Training:
 
                     num_train_batches += 1
 
-                    backprop_start = time.perf_counter()
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
-                    total_backprop_time += time.perf_counter() - backprop_start
 
                 self.model.eval()
 
@@ -159,7 +164,7 @@ class Training:
                                                      input[:, -self.T:, -2],
                                                      input[:, -1, -1])
 
-                        y_test = self.cvx(output[:, :, 0],
+                        y_test = self.cvx(_rescale(output[:, :, 0],self.scaler),
                                           input[:, -self.T:, -4],
                                           input[:, -self.T:, -3],
                                           input[:, -self.T:, -2],
@@ -193,12 +198,8 @@ class Training:
                 avg_test_mse.append(total_mse_test / num_test_batches)
                 avg_test_regret.append(total_regret_test / num_test_batches)
 
-                state_dict_list.append(self.model.state_dict())
-
-                if timer is True:
-                    print(f"Epoch model time: {total_model_time:.2f} seconds")
-                    print(f"Epoch cvx time: {total_cvx_time:.2f} seconds")
-                    print(f"Epoch backprop time: {total_backprop_time:.2f} seconds")
+                #state_dict_list.append(self.model.state_dict())
+                state_dict_list.append({k: v.clone().detach() for k, v in self.model.state_dict().items()})
 
                 if epoch % 5 == 0 and verbose >= 1:
                     print('Step {}:\n'
@@ -207,9 +208,12 @@ class Training:
                           '   MSE: {:.4f} | {:.4f}\n'
                           .format(epoch,avg_train_error[epoch],avg_test_error[epoch],avg_train_error[epoch],avg_test_regret[epoch],avg_train_mse[epoch],avg_test_mse[epoch]))
 
-                if epoch % (self.epochs / 10) == 0 and verbose >= 1:
+                if epoch % (self.epochs / 10) == 0:
                     beta = self.min_beta + (self.max_beta - self.min_beta) * (epoch / (self.epochs - self.epochs / 10))
                     print(f'MSE: {1 - beta:.2f} | Regret: {beta:.2f}')
+
+                if self.lr_decay is not None:
+                    self.scheduler.step()
 
         except Exception as e:
             print(f"Training interrupted due to error: {e}")
@@ -241,4 +245,6 @@ class Training:
             plt.show()
 
         return state_dict_list, argmin_test
+
+
 

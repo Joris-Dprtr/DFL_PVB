@@ -46,7 +46,6 @@ class LSTMOPT(nn.Module):
         self.linear = nn.Linear(in_features=hidden_size, out_features=output_size)
         self.cvxlayer = CVXLayer(problem, parameters, variables)
         self.scaler = scaler
-        self.relu = nn.ReLU()
 
     def forward(self, input, *parameters):
         """
@@ -60,7 +59,6 @@ class LSTMOPT(nn.Module):
         else:
             hidden = hidden[:, -1, :]
         output = self.linear(hidden)
-        output = self.relu(output)
         rescaled_output = output * (self.scaler[1] - self.scaler[0]) + self.scaler[0]
 
         opt_output = self.cvxlayer(rescaled_output, *parameters)
