@@ -44,7 +44,9 @@ class LSTMOPT(nn.Module):
 
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers,dropout=dropout, batch_first=True)
         self.linear = nn.Linear(in_features=hidden_size, out_features=output_size)
+
         self.cvxlayer = CVXLayer(problem, parameters, variables)
+
         self.scaler = scaler
 
     def forward(self, input, *parameters):
