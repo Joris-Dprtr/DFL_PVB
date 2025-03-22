@@ -206,7 +206,10 @@ class Training:
                           'Average train loss: {:.4f} | Average test loss: {:.4f}\n'
                           '   Regret: {:.4f} | {:.4f}\n'
                           '   MSE: {:.4f} | {:.4f}\n'
-                          .format(epoch,avg_train_error[epoch],avg_test_error[epoch],avg_train_error[epoch],avg_test_regret[epoch],avg_train_mse[epoch],avg_test_mse[epoch]))
+                          .format(epoch,
+                                  avg_train_error[epoch], avg_test_error[epoch],
+                                  avg_train_regret[epoch], avg_test_regret[epoch],
+                                  avg_train_mse[epoch], avg_test_mse[epoch]))
 
                 if epoch % (self.epochs / 10) == 0:
                     beta = self.min_beta + (self.max_beta - self.min_beta) * (epoch / (self.epochs - self.epochs / 10))

@@ -8,7 +8,7 @@ class PV_battery:
                  capacity,
                  max_charge,
                  max_discharge,
-                 self_consumption = True,
+                 self_consumption=True,
                  ):
 
         self.house = house
