@@ -1,5 +1,4 @@
 import torch
-import time
 from torch.utils.data import DataLoader, TensorDataset
 
 import matplotlib.pyplot as plt
@@ -13,9 +12,11 @@ def save_model(model, name):
     """
     torch.save(model.state_dict(), '../models/' + str(name))
 
+
 def _rescale(values, scaler):
     rescaled_values = values * (scaler[1] - scaler[0]) + scaler[0]
     return rescaled_values
+
 
 class Training:
 
@@ -37,7 +38,7 @@ class Training:
             min_beta=0,
             max_beta=1,
             lr_decay=None
-            ):
+    ):
         """
         The training class for the pytorch model
         :param model: The model that we train
@@ -83,7 +84,6 @@ class Training:
         days = y_train.shape[0] + y_test.shape[0]
         self.months = round(days / 30.5)
 
-
     def fit(self, verbose=0):
         """
         The training loop itself with error handling for cvx layer issues.
@@ -113,14 +113,13 @@ class Training:
                 self.model.train()
 
                 for input, output in batches:
-
                     pv_train, y_train = self.model(input[:, :, 0:-4],
                                                    input[:, -self.T:, -4],
                                                    input[:, -self.T:, -3],
                                                    input[:, -self.T:, -2],
                                                    input[:, -1, -1])
 
-                    y_train = self.cvx(_rescale(output[:, :, 0],self.scaler),
+                    y_train = self.cvx(_rescale(output[:, :, 0], self.scaler),
                                        input[:, -self.T:, -4],
                                        input[:, -self.T:, -3],
                                        input[:, -self.T:, -2],
@@ -164,7 +163,7 @@ class Training:
                                                      input[:, -self.T:, -2],
                                                      input[:, -1, -1])
 
-                        y_test = self.cvx(_rescale(output[:, :, 0],self.scaler),
+                        y_test = self.cvx(_rescale(output[:, :, 0], self.scaler),
                                           input[:, -self.T:, -4],
                                           input[:, -self.T:, -3],
                                           input[:, -self.T:, -2],
@@ -198,7 +197,7 @@ class Training:
                 avg_test_mse.append(total_mse_test / num_test_batches)
                 avg_test_regret.append(total_regret_test / num_test_batches)
 
-                #state_dict_list.append(self.model.state_dict())
+                # state_dict_list.append(self.model.state_dict())
                 state_dict_list.append({k: v.clone().detach() for k, v in self.model.state_dict().items()})
 
                 if epoch % 5 == 0 and verbose >= 1:
@@ -248,6 +247,3 @@ class Training:
             plt.show()
 
         return state_dict_list, argmin_test
-
-
-
