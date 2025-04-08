@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 import matplotlib.pyplot as plt
-
+from IPython.display import clear_output
 
 def save_model(model, name):
     """
@@ -127,17 +127,16 @@ class Training:
                                        y_train[-2],
                                        y_train[-1])
 
-                    '''
                     prediction = (torch.bmm(y_train[0].unsqueeze(1), input[:, -self.T:, -3].unsqueeze(-1)) -
                                   torch.bmm(y_train[1].unsqueeze(1), input[:, -self.T:, -2].unsqueeze(-1)))
                     prediction = prediction.squeeze([1, 2])
-                    '''
 
-                    prediction = torch.sub(torch.mul(y_train[0], input[:, -self.T:, -3]),
-                                           torch.mul(y_train[1], input[:, -self.T:, -2]))
+
+                    #prediction = torch.sub(torch.mul(y_train[0], input[:, -self.T:, -3]),
+                    #                       torch.mul(y_train[1], input[:, -self.T:, -2]))
 
                     mse_loss = self.criterion(pv_train, output[:, :, 0])
-                    regret = self.criterion(prediction, output[:, :, 1])
+                    regret = self.criterion(prediction, output[:, -1, 1])
 
                     loss = (beta * regret + (1 - beta) * mse_loss)
 
@@ -171,17 +170,17 @@ class Training:
                                           y_test[-2],
                                           y_test[-1])
 
-                        '''
+
                         prediction = (torch.bmm(y_test[0].unsqueeze(1), input[:, -self.T:, -3].unsqueeze(-1)) -
                                       torch.bmm(y_test[1].unsqueeze(1), input[:, -self.T:, -2].unsqueeze(-1)))
                         prediction = prediction.squeeze([1, 2])
-                        '''
 
-                        prediction = torch.sub(torch.mul(y_test[0], input[:, -self.T:, -3]),
-                                               torch.mul(y_test[1], input[:, -self.T:, -2]))
+
+                        #prediction = torch.sub(torch.mul(y_test[0], input[:, -self.T:, -3]),
+                        #                       torch.mul(y_test[1], input[:, -self.T:, -2]))
 
                         mse_loss = self.criterion(pv_test, output[:, :, 0])
-                        regret = self.criterion(prediction, output[:, :, 1])
+                        regret = self.criterion(prediction, output[:, -1, 1])
 
                         test_loss = (beta * regret + (1 - beta) * mse_loss)
 
@@ -200,7 +199,10 @@ class Training:
                 # state_dict_list.append(self.model.state_dict())
                 state_dict_list.append({k: v.clone().detach() for k, v in self.model.state_dict().items()})
 
-                if epoch % 5 == 0 and verbose >= 1:
+                if epoch % 5 == 0 and verbose == 2:
+                    clear_output(wait=True)
+                    beta = self.min_beta + (self.max_beta - self.min_beta) * (epoch / (self.epochs - self.epochs / 10))
+                    print(f'MSE: {1 - beta:.2f} | Regret: {beta:.2f}')
                     print('Step {}:\n'
                           'Average train loss: {:.4f} | Average test loss: {:.4f}\n'
                           '   Regret: {:.4f} | {:.4f}\n'
@@ -210,9 +212,7 @@ class Training:
                                   avg_train_regret[epoch], avg_test_regret[epoch],
                                   avg_train_mse[epoch], avg_test_mse[epoch]))
 
-                if epoch % (self.epochs / 10) == 0:
-                    beta = self.min_beta + (self.max_beta - self.min_beta) * (epoch / (self.epochs - self.epochs / 10))
-                    print(f'MSE: {1 - beta:.2f} | Regret: {beta:.2f}')
+
 
                 if self.lr_decay is not None:
                     self.scheduler.step()
@@ -225,7 +225,7 @@ class Training:
 
         print('Best Epoch: ' + str(argmin_test))
 
-        if verbose == 2:
+        if verbose >= 1:
             fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharey=False)
 
             axes[0].plot(avg_train_error, label='train error')
