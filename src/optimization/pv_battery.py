@@ -1,4 +1,5 @@
 import cvxpy as cp
+import numpy as np
 import src.tensors.tensorisation as tensor
 from src.models.lstm import LSTM
 from src.models.lstmopt import LSTMOPT
@@ -231,7 +232,6 @@ class PV_battery:
                                  X_test_opt[:, -t:, -2],
                                  X_test_opt[:, -1, -1])
 
-            pvb_dictionary['pv'].append(pv_test)
             # Make a list for the initial energy of the current timeslot for each day in the train and test sets
             initial_energy_t = []
 
@@ -274,6 +274,16 @@ class PV_battery:
                     pvb_dictionary['injection'].append(parameters_post[3].value)
 
                     # Add the initial battery values to our list
+
+            pvb_dictionary['pv'] = pv_test.cpu().detach().numpy()
+            pvb_dictionary['imp'] = np.array(pvb_dictionary['imp'])
+            pvb_dictionary['exp'] = np.array(pvb_dictionary['exp'])
+            pvb_dictionary['energy'] = np.array(pvb_dictionary['energy'])
+            pvb_dictionary['charge'] = np.array(pvb_dictionary['charge'])
+            pvb_dictionary['discharge'] = np.array(pvb_dictionary['discharge'])
+            pvb_dictionary['offtake'] = np.array(pvb_dictionary['offtake'])
+            pvb_dictionary['injection'] = np.array(pvb_dictionary['injection'])
+
             initial_battery_list.append(initial_energy_t)
             dictionary_list.append(pvb_dictionary)
 
