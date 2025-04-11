@@ -162,7 +162,6 @@ class PV_battery:
         lags = 24  # The number of lags for this first timeslot: the 24 previous hours
         forecast_gap = 0  # The gap after every forecast which is 0 when we need to forecast 24 hours
         dictionary_list = []
-        initial_battery_list = []
 
         # loop over each of the problems
         for t in range(T, min_T, -1):
@@ -201,7 +200,7 @@ class PV_battery:
 
             # If it is not the first optimization, we obtain the initial battery values from the list of battery values
             else:
-                initial_bat_tensor_test[:, -1, :] = torch.tensor(initial_battery_list[forecast_gap - 1]).unsqueeze(-1)
+                initial_bat_tensor_test[:, -1, :] = torch.tensor(dictionary_list[forecast_gap - 1]['energy'][:,1]).unsqueeze(-1)
 
             # We add this tensor to our X tensors for the E2E network
             X_test_opt = torch.concat([X_test_opt, initial_bat_tensor_test], dim=-1).to(self.device)
@@ -214,8 +213,8 @@ class PV_battery:
             if model == 'Perfect':
                 pv_test = y_test
             elif model == 'Naive':
-                pv_test = X_test_opt[:, :, 0]
-            if model == 'LSTM':
+                pv_test = X_test_opt[:, forecast_gap:24, 0]
+            elif model == 'LSTM':
                 lstm = LSTM(features, neurons, layers, t, 0.5).to(self.device)
                 lstm.load_state_dict(
                     torch.load('../models/LSTM/building_' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
@@ -248,9 +247,9 @@ class PV_battery:
                 problem.solve()
                 if model == "Perfect":
                     initial_energy_t.append(variables[-4].value[1])
-                    pvb_dictionary['imp'].append(variables_post[0].value)
-                    pvb_dictionary['exp'].append(variables_post[1].value)
-                    pvb_dictionary['energy'].append(variables_post[2].value)
+                    pvb_dictionary['imp'].append(variables[0].value)
+                    pvb_dictionary['exp'].append(variables[1].value)
+                    pvb_dictionary['energy'].append(variables[2].value)
                     pvb_dictionary['charge'].append(variables[-2].value)
                     pvb_dictionary['discharge'].append(variables[-1].value)
                     pvb_dictionary['offtake'].append(parameters[2].value)
@@ -284,7 +283,6 @@ class PV_battery:
             pvb_dictionary['offtake'] = np.array(pvb_dictionary['offtake'])
             pvb_dictionary['injection'] = np.array(pvb_dictionary['injection'])
 
-            initial_battery_list.append(initial_energy_t)
             dictionary_list.append(pvb_dictionary)
 
             # Update the lags we can use for the forecast
@@ -292,4 +290,4 @@ class PV_battery:
             # Add to the gap between forecasts (f.e. the gap is 1 if we only have to forecast 23 hours)
             forecast_gap += 1
 
-        return initial_battery_list, dictionary_list
+        return dictionary_list
