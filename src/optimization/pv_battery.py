@@ -4,6 +4,7 @@ import src.tensors.tensorisation as tensor
 from src.models.lstm import LSTM
 from src.models.lstmopt import LSTMOPT
 import torch
+import copy
 
 
 def _torch_py(torch_tensor):
@@ -163,6 +164,9 @@ class PV_battery:
         forecast_gap = 0  # The gap after every forecast which is 0 when we need to forecast 24 hours
         dictionary_list = []
 
+        local_domain_min = copy.deepcopy(domain_min)
+        local_domain_max = copy.deepcopy(domain_max)
+
         # loop over each of the problems
         for t in range(T, min_T, -1):
 
@@ -175,7 +179,7 @@ class PV_battery:
                               'offtake': [],
                               'injection': []}
 
-            print('Setting up optimization for hour ' + str(t))
+            print('Setting up optimization for ' + str(forecast_gap) + ':00')
 
             # Get the optimization problem for the current problem
             problem, variables, parameters = self.create_optimization_problem(t)
@@ -183,9 +187,13 @@ class PV_battery:
             problem_post, variables_post, parameters_post = self.create_post_forecast_optimization_problem(t)
 
             # Tensors for training an E2E network
+            if model == 'Perfect':
+                local_domain_min[-1] = 0
+                local_domain_max[-1] = 1
+
             tensors_opt = tensor.Tensors(self.house, 'solar_energy', past_features, future_features, lags,
                                          t, forecast_gap=forecast_gap, train_test_split=train_test_split,
-                                         domain_min=domain_min, domain_max=domain_max)
+                                         domain_min=local_domain_min, domain_max=local_domain_max)
 
             # We don't need the Y values as they are identical to the ones from the base forecaster
             _, X_test_opt, _, y_test, scalers_opt = tensors_opt.create_tensor()
@@ -200,15 +208,14 @@ class PV_battery:
 
             # If it is not the first optimization, we obtain the initial battery values from the list of battery values
             else:
-                initial_bat_tensor_test[:, -1, :] = torch.tensor(dictionary_list[forecast_gap - 1]['energy'][:,1]).unsqueeze(-1)
+                initial_bat_tensor_test[:, -1, :] = torch.tensor(
+                    dictionary_list[forecast_gap - 1]['energy'][:, 1]).unsqueeze(-1)
 
             # We add this tensor to our X tensors for the E2E network
             X_test_opt = torch.concat([X_test_opt, initial_bat_tensor_test], dim=-1).to(self.device)
 
             # Create the models for PV forecasts
             features = X_test_opt.shape[-1] - len(parameters) + 1
-
-            print('Forecasting PV')
 
             if model == 'Perfect':
                 pv_test = y_test
@@ -218,6 +225,7 @@ class PV_battery:
                 lstm = LSTM(features, neurons, layers, t, 0.5).to(self.device)
                 lstm.load_state_dict(
                     torch.load('../models/LSTM/building_' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
+                lstm.eval()
                 pv_test = lstm(X_test_opt[:, :, 0:-4])
             else:
                 cvx = LSTMOPT(features, neurons, layers, t, 0.5, problem, parameters, variables, scalers_opt[0]).to(
@@ -225,6 +233,7 @@ class PV_battery:
                 cvx.load_state_dict(
                     torch.load('../models/' + model + '/building_' + str(self.house_nr) + '_' + str(t) + 'h_' + str(
                         self.capacity) + 'kwh.pth'))
+                cvx.eval()
                 pv_test, _ = cvx(X_test_opt[:, :, 0:-4],
                                  X_test_opt[:, -t:, -4],
                                  X_test_opt[:, -t:, -3],
@@ -234,12 +243,13 @@ class PV_battery:
             # Make a list for the initial energy of the current timeslot for each day in the train and test sets
             initial_energy_t = []
 
-            print('Obtaining initial energy parameters for hour ' + str(forecast_gap + 1))
-
             # Loop over the days, first use the forecast of PV, next plug in the real PV, charge and discharge schedules
 
             for j in range(len(X_test_opt)):
-                parameters[0].value = _torch_py(_rescale(pv_test[j], scalers_opt[0]))
+                if model == "Perfect":
+                    parameters[0].value = _torch_py(pv_test[j])
+                else:
+                    parameters[0].value = _torch_py(_rescale(pv_test[j], scalers_opt[0]))
                 parameters[1].value = _torch_py(X_test_opt[j, -t:, -4])
                 parameters[2].value = _torch_py(X_test_opt[j, -t:, -3])
                 parameters[3].value = _torch_py(X_test_opt[j, -t:, -2])
@@ -264,11 +274,11 @@ class PV_battery:
                     parameters_post[6].value = variables[-1].value
                     problem_post.solve()
                     initial_energy_t.append(variables_post[-1].value[1])
-                    pvb_dictionary['imp'].append(variables[0].value)
-                    pvb_dictionary['exp'].append(variables[1].value)
-                    pvb_dictionary['energy'].append(variables[2].value)
-                    pvb_dictionary['charge'].append(variables[-2].value)
-                    pvb_dictionary['discharge'].append(variables[-1].value)
+                    pvb_dictionary['imp'].append(variables_post[0].value)
+                    pvb_dictionary['exp'].append(variables_post[1].value)
+                    pvb_dictionary['energy'].append(variables_post[2].value)
+                    pvb_dictionary['charge'].append(parameters_post[5].value)
+                    pvb_dictionary['discharge'].append(parameters_post[6].value)
                     pvb_dictionary['offtake'].append(parameters_post[2].value)
                     pvb_dictionary['injection'].append(parameters_post[3].value)
 
