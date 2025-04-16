@@ -176,6 +176,7 @@ class PV_battery:
                               'charge': [],
                               'discharge': [],
                               'pv': [],
+                              'load': [],
                               'offtake': [],
                               'injection': []}
 
@@ -187,9 +188,6 @@ class PV_battery:
             problem_post, variables_post, parameters_post = self.create_post_forecast_optimization_problem(t)
 
             # Tensors for training an E2E network
-            if model == 'Perfect':
-                local_domain_min[-1] = 0
-                local_domain_max[-1] = 1
 
             tensors_opt = tensor.Tensors(self.house, 'solar_energy', past_features, future_features, lags,
                                          t, forecast_gap=forecast_gap, train_test_split=train_test_split,
@@ -240,51 +238,52 @@ class PV_battery:
                                  X_test_opt[:, -t:, -2],
                                  X_test_opt[:, -1, -1])
 
-            # Make a list for the initial energy of the current timeslot for each day in the train and test sets
-            initial_energy_t = []
-
             # Loop over the days, first use the forecast of PV, next plug in the real PV, charge and discharge schedules
 
             for j in range(len(X_test_opt)):
                 if model == "Perfect":
-                    parameters[0].value = _torch_py(pv_test[j])
+                    parameters[0].value = _torch_py(y_test[j])
                 else:
                     parameters[0].value = _torch_py(_rescale(pv_test[j], scalers_opt[0]))
                 parameters[1].value = _torch_py(X_test_opt[j, -t:, -4])
                 parameters[2].value = _torch_py(X_test_opt[j, -t:, -3])
                 parameters[3].value = _torch_py(X_test_opt[j, -t:, -2])
-                parameters[4].value = _torch_py(X_test_opt[j, -1:, -1])[0]
+                parameters[4].value = round(_torch_py(X_test_opt[j, -1:, -1].double())[0],4)
                 problem.solve()
                 if model == "Perfect":
-                    initial_energy_t.append(variables[-4].value[1])
                     pvb_dictionary['imp'].append(variables[0].value)
                     pvb_dictionary['exp'].append(variables[1].value)
                     pvb_dictionary['energy'].append(variables[2].value)
                     pvb_dictionary['charge'].append(variables[-2].value)
                     pvb_dictionary['discharge'].append(variables[-1].value)
+                    pvb_dictionary['pv'].append(parameters[0].value)
+                    pvb_dictionary['load'].append(parameters[1].value)
                     pvb_dictionary['offtake'].append(parameters[2].value)
                     pvb_dictionary['injection'].append(parameters[3].value)
                 else:
-                    parameters_post[0].value = _torch_py(_rescale(y_test[j, :], scalers_opt[0]))
+                    parameters_post[0].value = _torch_py(y_test[j])
                     parameters_post[1].value = _torch_py(X_test_opt[j, -t:, -4])
                     parameters_post[2].value = _torch_py(X_test_opt[j, -t:, -3])
                     parameters_post[3].value = _torch_py(X_test_opt[j, -t:, -2])
-                    parameters_post[4].value = _torch_py(X_test_opt[j, -1:, -1])[0]
+                    parameters_post[4].value = round(_torch_py(X_test_opt[j, -1:, -1].double())[0],4)
                     parameters_post[5].value = variables[-2].value
                     parameters_post[6].value = variables[-1].value
                     problem_post.solve()
-                    initial_energy_t.append(variables_post[-1].value[1])
                     pvb_dictionary['imp'].append(variables_post[0].value)
                     pvb_dictionary['exp'].append(variables_post[1].value)
                     pvb_dictionary['energy'].append(variables_post[2].value)
-                    pvb_dictionary['charge'].append(parameters_post[5].value)
-                    pvb_dictionary['discharge'].append(parameters_post[6].value)
+                    pvb_dictionary['pv'].append(parameters[0].value)
+                    pvb_dictionary['load'].append(parameters_post[1].value)
                     pvb_dictionary['offtake'].append(parameters_post[2].value)
                     pvb_dictionary['injection'].append(parameters_post[3].value)
+                    pvb_dictionary['charge'].append(parameters_post[5].value)
+                    pvb_dictionary['discharge'].append(parameters_post[6].value)
+
 
                     # Add the initial battery values to our list
 
-            pvb_dictionary['pv'] = pv_test.cpu().detach().numpy()
+            pvb_dictionary['pv'] = np.array(pvb_dictionary['pv'])
+            pvb_dictionary['load'] = np.array(pvb_dictionary['load'])
             pvb_dictionary['imp'] = np.array(pvb_dictionary['imp'])
             pvb_dictionary['exp'] = np.array(pvb_dictionary['exp'])
             pvb_dictionary['energy'] = np.array(pvb_dictionary['energy'])
