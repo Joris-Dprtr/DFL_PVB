@@ -232,6 +232,7 @@ class PV_battery:
                     torch.load('../models/' + model + '/building_' + str(self.house_nr) + '_' + str(t) + 'h_' + str(
                         self.capacity) + 'kwh.pth'))
                 cvx.eval()
+                #TODO check the load parameter
                 pv_test, _ = cvx(X_test_opt[:, :, 0:-4],
                                  X_test_opt[:, -t:, -4],
                                  X_test_opt[:, -t:, -3],
@@ -241,6 +242,7 @@ class PV_battery:
             # Loop over the days, first use the forecast of PV, next plug in the real PV, charge and discharge schedules
 
             for j in range(len(X_test_opt)):
+                #TODO check the load parameter
                 if model == "Perfect":
                     parameters[0].value = _torch_py(y_test[j])
                 else:

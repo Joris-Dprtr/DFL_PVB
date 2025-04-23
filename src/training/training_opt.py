@@ -114,13 +114,13 @@ class Training:
 
                 for input, output in batches:
                     pv_train, y_train = self.model(input[:, :, 0:-4],
-                                                   input[:, -self.T:, -4],
+                                                   input[:, -self.T:, -4], # TO CHECK
                                                    input[:, -self.T:, -3],
                                                    input[:, -self.T:, -2],
                                                    input[:, -1, -1])
 
                     y_train = self.cvx(_rescale(output[:, :, 0], self.scaler),
-                                       input[:, -self.T:, -4],
+                                       input[:, -self.T:, -4], # TO CHECK
                                        input[:, -self.T:, -3],
                                        input[:, -self.T:, -2],
                                        input[:, -1, -1],
@@ -130,10 +130,6 @@ class Training:
                     prediction = (torch.bmm(y_train[0].unsqueeze(1), input[:, -self.T:, -3].unsqueeze(-1)) -
                                   torch.bmm(y_train[1].unsqueeze(1), input[:, -self.T:, -2].unsqueeze(-1)))
                     prediction = prediction.squeeze([1, 2])
-
-
-                    #prediction = torch.sub(torch.mul(y_train[0], input[:, -self.T:, -3]),
-                    #                       torch.mul(y_train[1], input[:, -self.T:, -2]))
 
                     mse_loss = self.criterion(pv_train, output[:, :, 0])
                     regret = self.criterion(prediction, output[:, -1, 1])
@@ -157,27 +153,22 @@ class Training:
 
                     for input, output in test_batches:
                         pv_test, y_test = self.model(input[:, :, 0:-4],
-                                                     input[:, -self.T:, -4],
+                                                     input[:, -self.T:, -4], # TO CHECK
                                                      input[:, -self.T:, -3],
                                                      input[:, -self.T:, -2],
                                                      input[:, -1, -1])
 
                         y_test = self.cvx(_rescale(output[:, :, 0], self.scaler),
-                                          input[:, -self.T:, -4],
+                                          input[:, -self.T:, -4], # TO CHECK
                                           input[:, -self.T:, -3],
                                           input[:, -self.T:, -2],
                                           input[:, -1, -1],
                                           y_test[-2],
                                           y_test[-1])
 
-
                         prediction = (torch.bmm(y_test[0].unsqueeze(1), input[:, -self.T:, -3].unsqueeze(-1)) -
                                       torch.bmm(y_test[1].unsqueeze(1), input[:, -self.T:, -2].unsqueeze(-1)))
                         prediction = prediction.squeeze([1, 2])
-
-
-                        #prediction = torch.sub(torch.mul(y_test[0], input[:, -self.T:, -3]),
-                        #                       torch.mul(y_test[1], input[:, -self.T:, -2]))
 
                         mse_loss = self.criterion(pv_test, output[:, :, 0])
                         regret = self.criterion(prediction, output[:, -1, 1])
