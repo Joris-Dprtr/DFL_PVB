@@ -114,13 +114,13 @@ class Training:
 
                 for input, output in batches:
                     pv_train, y_train = self.model(input[:, :, 0:-4],
-                                                   input[:, -self.T:, -4], # TO CHECK
+                                                   input[:, -self.T:, -4],
                                                    input[:, -self.T:, -3],
                                                    input[:, -self.T:, -2],
                                                    input[:, -1, -1])
 
                     y_train = self.cvx(_rescale(output[:, :, 0], self.scaler),
-                                       input[:, -self.T:, -4], # TO CHECK
+                                       input[:, -self.T:, -5],  # CHANGED from 4 to 5: we use the REAL load at inference
                                        input[:, -self.T:, -3],
                                        input[:, -self.T:, -2],
                                        input[:, -1, -1],
@@ -153,13 +153,13 @@ class Training:
 
                     for input, output in test_batches:
                         pv_test, y_test = self.model(input[:, :, 0:-4],
-                                                     input[:, -self.T:, -4], # TO CHECK
+                                                     input[:, -self.T:, -4],
                                                      input[:, -self.T:, -3],
                                                      input[:, -self.T:, -2],
                                                      input[:, -1, -1])
 
                         y_test = self.cvx(_rescale(output[:, :, 0], self.scaler),
-                                          input[:, -self.T:, -4], # TO CHECK
+                                          input[:, -self.T:, -5],  # CHANGED from 4 to 5: we use the REAL load at inference
                                           input[:, -self.T:, -3],
                                           input[:, -self.T:, -2],
                                           input[:, -1, -1],
