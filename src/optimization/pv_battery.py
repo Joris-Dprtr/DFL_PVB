@@ -157,7 +157,8 @@ class PV_battery:
                              future_features,
                              domain_min,
                              domain_max,
-                             train_test_split=0.8):
+                             train_test_split=0.8,
+                             noise:float=0):
 
         # These values get updated each loop
         lags = 24  # The number of lags for this first timeslot: the 24 previous hours
@@ -223,15 +224,15 @@ class PV_battery:
             elif model == 'LSTM':
                 lstm = LSTM(features, neurons, layers, t, 0.5).to(self.device)
                 lstm.load_state_dict(
-                    torch.load('../models/LSTM/building_' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
+                    torch.load('../models/LSTM/building' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
                 lstm.eval()
                 pv_test = lstm(X_test_opt[:, :, 0:lstm.input_size])
             else:
                 cvx = LSTMOPT(features, neurons, layers, t, 0.5, problem, parameters, variables, scalers_opt[0]).to(
                     self.device)
                 cvx.load_state_dict(
-                    torch.load('../models/' + model + '/building_' + str(self.house_nr) + '_' + str(t) + 'h_' + str(
-                        self.capacity) + 'kwh.pth'))
+                    torch.load('../models/' + model + '/building' + str(self.house_nr) + '_' + str(t) + 'h_' + str(
+                        self.capacity) + 'kwh_' + str(noise) + 'noise.pth'))
                 cvx.eval()
                 pv_test, _ = cvx(X_test_opt[:, :, 0:cvx.input_size],
                                  X_test_opt[:, -t:, -4],
