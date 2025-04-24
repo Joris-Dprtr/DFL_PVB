@@ -223,7 +223,7 @@ class PV_battery:
                 lstm.load_state_dict(
                     torch.load('../models/LSTM/building_' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
                 lstm.eval()
-                pv_test = lstm(X_test_opt[:, :, 0:-4])
+                pv_test = lstm(X_test_opt[:, :, 0:lstm.input_size])
             else:
                 cvx = LSTMOPT(features, neurons, layers, t, 0.5, problem, parameters, variables, scalers_opt[0]).to(
                     self.device)
@@ -231,7 +231,7 @@ class PV_battery:
                     torch.load('../models/' + model + '/building_' + str(self.house_nr) + '_' + str(t) + 'h_' + str(
                         self.capacity) + 'kwh.pth'))
                 cvx.eval()
-                pv_test, _ = cvx(X_test_opt[:, :, 0:-4],
+                pv_test, _ = cvx(X_test_opt[:, :, 0:cvx.input_size],
                                  X_test_opt[:, -t:, -4],
                                  X_test_opt[:, -t:, -3],
                                  X_test_opt[:, -t:, -2],

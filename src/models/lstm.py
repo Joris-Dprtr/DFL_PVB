@@ -19,6 +19,8 @@ class LSTM(nn.Module):
         """
         super().__init__()
 
+        self.input_size = input_size
+
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, dropout=dropout, batch_first=True)
         self.linear = nn.Linear(in_features=hidden_size, out_features=output_size)
 
