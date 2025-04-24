@@ -188,7 +188,6 @@ class PV_battery:
             problem_post, variables_post, parameters_post = self.create_post_forecast_optimization_problem(t)
 
             # Tensors for training an E2E network
-
             tensors_opt = tensor.Tensors(self.house, 'solar_energy', past_features, future_features, lags,
                                          t, forecast_gap=forecast_gap, train_test_split=train_test_split,
                                          domain_min=local_domain_min, domain_max=local_domain_max)
@@ -232,7 +231,6 @@ class PV_battery:
                     torch.load('../models/' + model + '/building_' + str(self.house_nr) + '_' + str(t) + 'h_' + str(
                         self.capacity) + 'kwh.pth'))
                 cvx.eval()
-                #TODO check the load parameter
                 pv_test, _ = cvx(X_test_opt[:, :, 0:-4],
                                  X_test_opt[:, -t:, -4],
                                  X_test_opt[:, -t:, -3],
@@ -242,12 +240,12 @@ class PV_battery:
             # Loop over the days, first use the forecast of PV, next plug in the real PV, charge and discharge schedules
 
             for j in range(len(X_test_opt)):
-                #TODO check the load parameter
                 if model == "Perfect":
                     parameters[0].value = _torch_py(y_test[j])
+                    parameters[1].value = _torch_py(X_test_opt[j, -t:, -5])
                 else:
                     parameters[0].value = _torch_py(_rescale(pv_test[j], scalers_opt[0]))
-                parameters[1].value = _torch_py(X_test_opt[j, -t:, -4])
+                    parameters[1].value = _torch_py(X_test_opt[j, -t:, -4])
                 parameters[2].value = _torch_py(X_test_opt[j, -t:, -3])
                 parameters[3].value = _torch_py(X_test_opt[j, -t:, -2])
                 parameters[4].value = round(_torch_py(X_test_opt[j, -1:, -1].double())[0],4)
@@ -264,7 +262,7 @@ class PV_battery:
                     pvb_dictionary['injection'].append(parameters[3].value)
                 else:
                     parameters_post[0].value = _torch_py(y_test[j])
-                    parameters_post[1].value = _torch_py(X_test_opt[j, -t:, -4])
+                    parameters_post[1].value = _torch_py(X_test_opt[j, -t:, -5])
                     parameters_post[2].value = _torch_py(X_test_opt[j, -t:, -3])
                     parameters_post[3].value = _torch_py(X_test_opt[j, -t:, -2])
                     parameters_post[4].value = round(_torch_py(X_test_opt[j, -1:, -1].double())[0],4)

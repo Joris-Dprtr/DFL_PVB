@@ -113,7 +113,7 @@ class Training:
                 self.model.train()
 
                 for input, output in batches:
-                    pv_train, y_train = self.model(input[:, :, 0:-4],
+                    pv_train, y_train = self.model(input[:, :, 0:self.model.input_size],
                                                    input[:, -self.T:, -4],
                                                    input[:, -self.T:, -3],
                                                    input[:, -self.T:, -2],
@@ -152,7 +152,7 @@ class Training:
                     test_batches = iter(self.test_loader)
 
                     for input, output in test_batches:
-                        pv_test, y_test = self.model(input[:, :, 0:-4],
+                        pv_test, y_test = self.model(input[:, :, 0:self.model.input_size],
                                                      input[:, -self.T:, -4],
                                                      input[:, -self.T:, -3],
                                                      input[:, -self.T:, -2],
