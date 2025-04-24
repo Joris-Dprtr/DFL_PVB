@@ -212,7 +212,9 @@ class PV_battery:
             X_test_opt = torch.concat([X_test_opt, initial_bat_tensor_test], dim=-1).to(self.device)
 
             # Create the models for PV forecasts
-            features = X_test_opt.shape[-1] - len(parameters) + 1
+
+            # Features excludes the parameters, except for PV (so parameters - 1) and the perfect load (- 1)
+            features = X_test_opt.shape[-1] - (len(parameters) - 1) - 1
 
             if model == 'Perfect':
                 pv_test = y_test
