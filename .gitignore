@@ -1,5 +1,4 @@
 __pycache__/
 *.ipynb_checkpoint
 .idea/
-/models/CVX/
-/models/LSTM_CVX/
+/models/
