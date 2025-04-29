@@ -221,7 +221,7 @@ class PV_battery:
                 pv_test = y_test
             elif model == 'Naive':
                 pv_test = X_test_opt[:, forecast_gap:24, 0]
-            elif model == 'LSTM':
+            elif model == 'LSTM' or model == 'LSTM_Weather':
                 lstm = LSTM(features, neurons, layers, t, 0.5).to(self.device)
                 lstm.load_state_dict(
                     torch.load('../models/' + model + '/building' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
@@ -245,6 +245,7 @@ class PV_battery:
             for j in range(len(X_test_opt)):
                 if model == "Perfect":
                     parameters[0].value = _torch_py(y_test[j])
+
                     parameters[1].value = _torch_py(X_test_opt[j, -t:, -5])
                 else:
                     parameters[0].value = _torch_py(_rescale(pv_test[j], scalers_opt[0]))
