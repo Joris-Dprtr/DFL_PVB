@@ -1,8 +1,36 @@
 import openmeteo_requests
-
 import requests_cache
 import pandas as pd
+import numpy as np
 from retry_requests import retry
+from scipy.stats import skewnorm
+
+
+def simulate_forecast(actual, noise_scale=0.1, skewness=-2, smooth_param=5):
+    """
+    Simulate forecast using a skewed noise distribution and then smooth the predictions.
+
+    Parameters:
+    - actual: Series or array of actual values
+    - noise_scale: scale (std dev) of noise applied as % of actual
+    - skewness: negative values will skew the noise left (underestimation)
+    - smooth_method: method to smooth predictions ('rolling', 'ema', 'gaussian')
+    - smooth_param: parameter for smoothing method (window size, span, sigma)
+
+    Returns:
+    - forecasted: Smoothed series of simulated forecasts
+    """
+    # Generate skewed noise from skew-normal distribution
+    noise = skewnorm.rvs(a=skewness, size=len(actual)) * noise_scale
+
+    # Apply noise
+    forecasted = actual * (1 + noise)
+    forecasted = forecasted.clip(lower=0)
+
+    # Apply smoothing based on selected method
+    forecasted = np.convolve(forecasted, np.ones(smooth_param) / smooth_param, mode='same')
+
+    return forecasted
 
 
 class Open_meteo:
@@ -10,10 +38,8 @@ class Open_meteo:
     def __init__(self,
                  latitude,
                  longitude,
-                 variables,
                  start_date,
                  end_date):
-
         self.url = "https://archive-api.open-meteo.com/v1/archive"
         self.params = {
             "latitude": latitude,
@@ -23,11 +49,11 @@ class Open_meteo:
             "hourly": ["temperature_2m", "relative_humidity_2m", "weather_code", "cloud_cover", "direct_radiation",
                        "diffuse_radiation"],
             "models": "best_match"
-            }
-        self.variables = ['date'] + variables
+        }
+        self.variables = ['date'] + ['relative_humidity_2m', 'diffuse_radiation', 'direct_radiation', 'temperature_2m',
+                                     'weather_code', 'cloud_cover']
 
     def get_open_meteo_hourly(self):
-
         # Set up the Open-Meteo API client with cache and retry on error
         cache_session = requests_cache.CachedSession('.cache', expire_after=-1)
         retry_session = retry(cache_session, retries=5, backoff_factor=0.2)

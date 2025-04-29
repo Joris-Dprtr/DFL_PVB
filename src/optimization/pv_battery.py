@@ -224,7 +224,7 @@ class PV_battery:
             elif model == 'LSTM':
                 lstm = LSTM(features, neurons, layers, t, 0.5).to(self.device)
                 lstm.load_state_dict(
-                    torch.load('../models/LSTM/building' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
+                    torch.load('../models/' + model + '/building' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
                 lstm.eval()
                 pv_test = lstm(X_test_opt[:, :, 0:lstm.input_size])
             else:
