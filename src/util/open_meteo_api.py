@@ -4,7 +4,35 @@ import pandas as pd
 import numpy as np
 from retry_requests import retry
 from scipy.stats import skewnorm
+from scipy.ndimage import gaussian_filter1d
 
+
+def _apply_random_time_shifts(series, shift_prob=0.1, max_shift=1):
+    """
+    Shift values forward/backward in time with given probability.
+
+    Parameters:
+    - series: input array
+    - shift_prob: probability of shifting each point
+    - max_shift: max steps to shift (positive or negative)
+
+    Returns:
+    - shifted array (same length, interpolated)
+    """
+    shifted = np.full_like(series, np.nan)
+    for i in range(len(series)):
+        if np.random.rand() < shift_prob:
+            shift = np.random.randint(-max_shift, max_shift + 1)
+            new_i = np.clip(i + shift, 0, len(series) - 1)
+            shifted[new_i] = series[i]
+        else:
+            shifted[i] = series[i]
+
+    # Fill in NaNs by interpolation
+    mask = np.isnan(shifted)
+    shifted[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), shifted[~mask])
+
+    return shifted
 
 def simulate_forecast(actual, noise_scale=0.1, skewness=-2, smooth_param=5):
     """
@@ -25,10 +53,12 @@ def simulate_forecast(actual, noise_scale=0.1, skewness=-2, smooth_param=5):
 
     # Apply noise
     forecasted = actual * (1 + noise)
-    forecasted = forecasted.clip(lower=0)
+    forecasted = forecasted.clip(lower=min(actual))
+    forecasted = forecasted.clip(upper=np.sort(actual)[-10])
+    forecasted = _apply_random_time_shifts(forecasted, shift_prob=noise_scale/10, max_shift=5)
 
     # Apply smoothing based on selected method
-    forecasted = np.convolve(forecasted, np.ones(smooth_param) / smooth_param, mode='same')
+    forecasted = gaussian_filter1d(forecasted, sigma=smooth_param)
 
     return forecasted
 
