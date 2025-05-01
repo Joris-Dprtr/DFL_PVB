@@ -221,18 +221,18 @@ class PV_battery:
                 pv_test = y_test
             elif model == 'Naive':
                 pv_test = X_test_opt[:, forecast_gap:24, 0]
-            elif model == 'LSTM' or model == 'LSTM_Weather':
+            elif model == 'LSTM':
                 lstm = LSTM(features, neurons, layers, t, 0.5).to(self.device)
                 lstm.load_state_dict(
                     torch.load('../models/' + model + '/building' + str(self.house_nr) + '_' + str(t) + 'h.pth'))
                 lstm.eval()
                 pv_test = lstm(X_test_opt[:, :, 0:lstm.input_size])
             else:
-                cvx = LSTMOPT(features, neurons, layers, t, 0.5, problem, parameters, variables, scalers_opt[0]).to(
-                    self.device)
+                cvx = LSTMOPT(features, neurons, layers, t, 0.5, problem, parameters, variables,
+                              scalers_opt[0]).to(self.device)
                 cvx.load_state_dict(
-                    torch.load('../models/' + model + '/building' + str(self.house_nr) + '_' + str(t) + 'h_' + str(
-                        self.capacity) + 'kwh_' + str(noise) + 'noise.pth'))
+                    torch.load('../models/' + model + '/' + str(noise) + '_noise/building' + str(self.house_nr) + '_' +
+                               str(t) + 'h_' + str(self.capacity) + 'kwh.pth'))
                 cvx.eval()
                 pv_test, _ = cvx(X_test_opt[:, :, 0:cvx.input_size],
                                  X_test_opt[:, -t:, -4],
