@@ -158,12 +158,17 @@ class PV_battery:
                              domain_min,
                              domain_max,
                              train_test_split=0.8,
-                             noise:float=0):
+                             noise:float=0,
+                             previous_list=None):
 
         # These values get updated each loop
-        lags = 24  # The number of lags for this first timeslot: the 24 previous hours
-        forecast_gap = 0  # The gap after every forecast which is 0 when we need to forecast 24 hours
-        dictionary_list = []
+        lags = 48 - T  # The number of lags for this first timeslot: the 24 previous hours
+        forecast_gap = 24 - T  # The gap after every forecast which is 0 when we need to forecast 24 hours
+
+        if previous_list is None:
+            dictionary_list = []
+        else:
+            dictionary_list = previous_list
 
         local_domain_min = copy.deepcopy(domain_min)
         local_domain_max = copy.deepcopy(domain_max)

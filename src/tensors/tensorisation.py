@@ -139,22 +139,6 @@ class Tensors:
             past_test_array_shaped = _moving_window(past_test_array, X_test.shape[0], self.lags,
                                                     self.forecast_gap + self.forecast_period)
 
-            if self.flat_evaluation_length != 0:
-                past_eval_array = np.array(self.data[feature][past_eval_start:past_eval_end])
-                past_eval_array_shaped = _moving_window(past_eval_array, X_eval.shape[0], self.lags,
-                                                        self.forecast_gap + self.forecast_period)
-
-            if self.lags < self.forecast_period:
-                past_train_padding = np.zeros((past_train_array_shaped.shape[0], self.forecast_period - self.lags))
-                past_train_array_shaped = np.concatenate((past_train_padding, past_train_array_shaped), axis=1)
-
-                past_test_padding = np.zeros((past_test_array_shaped.shape[0], self.forecast_period - self.lags))
-                past_test_array_shaped = np.concatenate((past_test_padding, past_test_array_shaped), axis=1)
-
-                if self.flat_evaluation_length != 0:
-                    past_eval_padding = np.zeros((past_eval_array_shaped.shape[0], self.forecast_period - self.lags))
-                    past_eval_array_shaped = np.concatenate((past_eval_padding, past_eval_array_shaped), axis=1)
-
             past_train, past_test, past_min, past_max = _scale(past_train_array_shaped, past_test_array_shaped,
                                                                domain_min=self.domain_min[i] if isinstance(
                                                                    self.domain_min,
@@ -162,17 +146,34 @@ class Tensors:
                                                                domain_max=self.domain_max[i] if isinstance(
                                                                    self.domain_max,
                                                                    list) else None)
+
+            if self.lags < self.forecast_period:
+                past_train_padding = np.zeros((past_train_array_shaped.shape[0], self.forecast_period - self.lags))
+                past_train = np.concatenate((past_train_padding, past_train), axis=1)
+
+                past_test_padding = np.zeros((past_test_array_shaped.shape[0], self.forecast_period - self.lags))
+                past_test = np.concatenate((past_test_padding, past_test), axis=1)
+
+            X_train[:, :, i] = torch.tensor(past_train).type(torch.float32)
+            X_test[:, :, i] = torch.tensor(past_test).type(torch.float32)
+
             if self.flat_evaluation_length != 0:
+                past_eval_array = np.array(self.data[feature][past_eval_start:past_eval_end])
+                past_eval_array_shaped = _moving_window(past_eval_array, X_eval.shape[0], self.lags,
+                                                        self.forecast_gap + self.forecast_period)
+
                 _, past_eval, _, _ = _scale(past_train_array_shaped, past_eval_array_shaped,
                                             domain_min=self.domain_min[i] if isinstance(self.domain_min,
                                                                                         list) else None,
                                             domain_max=self.domain_max[i] if isinstance(self.domain_max,
                                                                                         list) else None)
 
-            X_train[:, :, i] = torch.tensor(past_train).type(torch.float32)
-            X_test[:, :, i] = torch.tensor(past_test).type(torch.float32)
-            if self.flat_evaluation_length != 0:
+                if self.flat_evaluation_length != 0:
+                    past_eval_padding = np.zeros((past_eval_array_shaped.shape[0], self.forecast_period - self.lags))
+                    past_eval = np.concatenate((past_eval_padding, past_eval), axis=1)
+
                 X_eval[:, :, i] = torch.tensor(past_eval).type(torch.float32)
+
             scalers.append([past_min, past_max])
 
         # Future features
@@ -196,23 +197,6 @@ class Tensors:
             future_test_array_shaped = _moving_window(future_test_array, X_test.shape[0], self.forecast_period,
                                                       self.forecast_gap + self.forecast_period)
 
-            if self.flat_evaluation_length != 0:
-                future_eval_array = np.array(self.data[feature][future_eval_start:future_eval_end])
-                future_eval_array_shaped = _moving_window(future_eval_array, X_eval.shape[0], self.forecast_period,
-                                                          self.forecast_gap + self.forecast_period)
-
-            if self.lags > self.forecast_period:
-                future_train_padding = np.zeros((future_train_array_shaped.shape[0], self.lags - self.forecast_period))
-                future_train_array_shaped = np.concatenate((future_train_padding, future_train_array_shaped), axis=1)
-
-                future_test_padding = np.zeros((future_test_array_shaped.shape[0], self.lags - self.forecast_period))
-                future_test_array_shaped = np.concatenate((future_test_padding, future_test_array_shaped), axis=1)
-
-                if self.flat_evaluation_length != 0:
-                    future_eval_padding = np.zeros(
-                        (future_eval_array_shaped.shape[0], self.lags - self.forecast_period))
-                    future_eval_array_shaped = np.concatenate((future_eval_padding, future_eval_array_shaped), axis=1)
-
             future_train, future_test, future_min, future_max = _scale(future_train_array_shaped,
                                                                        future_test_array_shaped,
                                                                        domain_min=self.domain_min[
@@ -221,18 +205,30 @@ class Tensors:
                                                                        domain_max=self.domain_max[
                                                                            len(self.past_features) + i] if
                                                                        isinstance(self.domain_max, list) else None)
+            if self.lags > self.forecast_period:
+                future_train_padding = np.zeros((future_train_array_shaped.shape[0], self.lags - self.forecast_period))
+                future_train = np.concatenate((future_train_padding, future_train), axis=1)
 
-            if self.flat_evaluation_length != 0:
-                _, future_eval, _, _ = _scale(future_train_array_shaped, future_eval_array_shaped,
-                                              domain_min=self.domain_min[len(self.past_features) + i] if
-                                              isinstance(self.domain_min, list) else None,
-                                              domain_max=self.domain_max[len(self.past_features) + i] if
-                                              isinstance(self.domain_max, list) else None)
+                future_test_padding = np.zeros((future_test_array_shaped.shape[0], self.lags - self.forecast_period))
+                future_test = np.concatenate((future_test_padding, future_test), axis=1)
 
             X_train[:, :, len(self.past_features) + i] = torch.tensor(future_train).type(torch.float32)
             X_test[:, :, len(self.past_features) + i] = torch.tensor(future_test).type(torch.float32)
 
             if self.flat_evaluation_length != 0:
+                future_eval_array = np.array(self.data[feature][future_eval_start:future_eval_end])
+                future_eval_array_shaped = _moving_window(future_eval_array, X_eval.shape[0], self.forecast_period,
+                                                          self.forecast_gap + self.forecast_period)
+
+                _, future_eval, _, _ = _scale(future_train_array_shaped, future_eval_array_shaped,
+                                              domain_min=self.domain_min[len(self.past_features) + i] if
+                                              isinstance(self.domain_min, list) else None,
+                                              domain_max=self.domain_max[len(self.past_features) + i] if
+                                              isinstance(self.domain_max, list) else None)
+                if self.lags > self.forecast_period:
+                    future_eval_padding = np.zeros((future_eval_array_shaped.shape[0], self.lags - self.forecast_period))
+                    future_eval = np.concatenate((future_eval_padding, future_eval), axis=1)
+
                 X_eval[:, :, len(self.past_features) + i] = torch.tensor(future_eval).type(torch.float32)
 
             scalers.append([future_min, future_max])
