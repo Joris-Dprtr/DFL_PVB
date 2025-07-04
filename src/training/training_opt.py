@@ -131,8 +131,8 @@ class Training:
                                   torch.bmm(y_train[1].unsqueeze(1), input[:, -self.T:, -2].unsqueeze(-1)))
                     prediction = prediction.squeeze([1, 2])
 
-                    mse_loss = self.criterion(pv_train, output[:, :, 0])
                     regret = self.criterion(prediction, output[:, -1, 1])
+                    mse_loss = self.criterion(pv_train, output[:, :, 0])
 
                     loss = (beta * regret + (1 - beta) * mse_loss)
 
