@@ -113,14 +113,14 @@ class Training:
                 self.model.train()
 
                 for input, output in batches:
-                    pv_train, y_train = self.model(input[:, :, 0:self.model.input_size],
-                                                   input[:, -self.T:, -4],
-                                                   input[:, -self.T:, -3],
-                                                   input[:, -self.T:, -2],
-                                                   input[:, -1, -1])
+                    pv_train, y_train = self.model(input[:, :, 0:self.model.input_size],        # PV forecast parameter
+                                                   input[:, -self.T:, -4],                      # Load forecast
+                                                   input[:, -self.T:, -3],                      # Offtake cost
+                                                   input[:, -self.T:, -2],                      # Injection profit
+                                                   input[:, -1, -1])                            # Battery state
 
-                    y_train = self.cvx(_rescale(output[:, :, 0], self.scaler),
-                                       input[:, -self.T:, -5],  # CHANGED from 4 to 5: we use the REAL load at inference
+                    y_train = self.cvx(_rescale(output[:, :, 0], self.scaler),                  # Actual PV
+                                       input[:, -self.T:, -5],                                  # Load
                                        input[:, -self.T:, -3],
                                        input[:, -self.T:, -2],
                                        input[:, -1, -1],
