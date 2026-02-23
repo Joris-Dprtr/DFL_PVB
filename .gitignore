@@ -3,6 +3,9 @@ __pycache__/
 .idea/
 /models/
 /src/__pycache__/
-/data/
+/data/Dutchdata_clean/
+/data/Dutchdata_faulty/
+/data/load_fcsts/
 /notebooks/OLD/
 /results/optimisation/
+/figures/
