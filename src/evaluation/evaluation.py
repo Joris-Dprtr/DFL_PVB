@@ -6,6 +6,7 @@ from ..util import formulas as fm
 
 from matplotlib import pyplot as plt
 import seaborn as sns
+from scipy import stats
 
 import warnings
 
@@ -138,3 +139,38 @@ class Evaluation:
         g.fig.suptitle(y_label, x=0, y=0.95, ha='left', size='medium', fontweight='bold')
         g.set(yticks=[], ylabel="")
         g.despine(bottom=True, left=True)
+
+    def diebold_mariano_test(self, h=1):
+        """
+        H0: Both models have the same cost (mean d = 0)
+        H1: The models have different costs
+        """
+        # 1. Calculate the Loss Differential
+        d = self.forecast - self.actual
+        T = len(d)
+
+        # 2. Calculate the autocovariance up to lag h-1
+        def autocovariance(xi, lag):
+            mean_xi = np.mean(xi)
+            return np.mean((xi[lag:] - mean_xi) * (xi[:T - lag] - mean_xi))
+
+        # 3. Variance estimation (HAC)
+        var_d = autocovariance(d, 0)
+        for i in range(1, h):
+            var_d += 2 * autocovariance(d, i)
+
+        # 4. DM Statistic
+        # If var_d is zero or negative (due to small sample), handle exception
+        if var_d <= 0:
+            return np.nan, np.nan
+
+        dm_stat = np.mean(d) / np.sqrt(var_d / T)
+
+        # 5. Harvey-Leybourne-Newbold Correction (for better small-sample performance)
+        hln_correction = np.sqrt((T + 1 - 2 * h + (h / T) * (h - 1)) / T)
+        dm_stat_corrected = hln_correction * dm_stat
+
+        # 6. P-value (using T-distribution is more robust than Normal)
+        p_value = 2 * (1 - stats.t.cdf(np.abs(dm_stat_corrected), df=T - 1))
+
+        return dm_stat_corrected, p_value
